@@ -17,7 +17,7 @@ import java.nio.file.Paths;
 public class RoborallyController {
 
 	@GetMapping("/roborally/boards")
-	public ResponseEntity<Object> getData() throws IOException {
+	ResponseEntity<Object> getData() throws IOException {
 		JSONObject boards = null;
 		try {
 			Connection connection = DriverManager.getConnection("jdbc:mysql://localhost:3307/roborally_test?characterEncoding=utf8", "root", "mads3241");
@@ -88,13 +88,34 @@ public class RoborallyController {
 				HttpStatus.OK
 		);
 	}
-/*
+
 	@GetMapping("/roborally/games")
-	List<Game> all() {
-		return repository.findAll();
-	}
+	ResponseEntity<Object> all() {
+		JSONArray games = null;
 
+		try {
+			Connection connection = DriverManager.getConnection("jdbc:mysql://localhost:3307/roborally_test?characterEncoding=utf8", "root", "mads3241");
 
+			Statement statement = connection.createStatement();
+
+			ResultSet response = statement.executeQuery("SELECT Name FROM boardsettings WHERE `Type` = 'Game';");
+
+			games = new JSONArray();
+
+			while (response.next()) {
+				games.add(response.getString("Name"));
+			}
+
+			}catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return new ResponseEntity<>(
+				games,
+				HttpStatus.OK
+		);	}
+
+/*
 	@PostMapping("/roborally/newgame")
 	public Game newGame(@RequestBody Game game) {
 		return repository.save(game);
