@@ -1,4 +1,4 @@
-package com.example.Roborally;
+package roborallyRest;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
