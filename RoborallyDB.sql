@@ -13,6 +13,7 @@ currentPlayer int(11),
 currentStep int(11),
 playerCount int(11) not null DEFAULT 1,
 playerLimit int(11) not null DEFAULT 2,
+originBoard VARCHAR(255) DEFAULT null,
 PRIMARY KEY (Name)
 ) DEFAULT CHARSET=utf8mb4;
 
