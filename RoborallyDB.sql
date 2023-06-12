@@ -11,6 +11,8 @@ Height int(11) not null,
 Phase ENUM('PROGRAMMING', 'ACTIVATION'),
 currentPlayer int(11),
 currentProgram int(11),
+playerCount int(11) not null DEFAULT 1,
+playerLimit int(11) not null DEFAULT 2,
 PRIMARY KEY (Name)
 ) DEFAULT CHARSET=utf8mb4;
 
