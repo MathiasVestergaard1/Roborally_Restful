@@ -1,9 +1,12 @@
 package roborallyRest;
 
+import java.io.FileReader;
 import java.sql.*;
 
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
+import org.json.simple.parser.ParseException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -15,12 +18,33 @@ import java.nio.file.Paths;
 
 @RestController
 public class RoborallyController {
+	private String url;
+	private String port;
+	private String database;
+	private String username;
+	private String password;
+
+	RoborallyController() {
+		JSONObject jsonFile = new JSONObject();
+		try {
+			FileReader reader = new FileReader("config.json");
+			JSONParser jsonParser = new JSONParser();
+			jsonFile = (JSONObject) jsonParser.parse(reader);
+
+		} catch (IOException | NullPointerException | ParseException ignored) {}
+
+		this.url = (String) jsonFile.get("url");
+		this.port = (String) jsonFile.get("port");
+		this.database = (String) jsonFile.get("database");
+		this.username = (String) jsonFile.get("username");
+		this.password = (String) jsonFile.get("password");
+	}
 
 	@GetMapping("/roborally/boards")
 	ResponseEntity<Object> getData() throws IOException {
 		JSONObject boards = null;
 		try {
-			Connection connection = DriverManager.getConnection("jdbc:mysql://localhost:3307/roborally_test?characterEncoding=utf8", "root", "mads3241");
+			Connection connection = DriverManager.getConnection("jdbc:mysql://" + url + ":" + port + "/" + database + "?characterEncoding=utf8", username, password);
 
 			Statement statement = connection.createStatement();
 
