@@ -188,7 +188,7 @@ public class RoborallyController {
 	}
 
 	@GetMapping("/roborally/games")
-	ResponseEntity<Object> all() {
+	ResponseEntity<Object> games() {
 		JSONArray games = null;
 
 		try {
@@ -422,9 +422,9 @@ public class RoborallyController {
 			}
 
 			statement.executeUpdate("INSERT INTO boardsettings " +
-					"(Name, Type, Width, Height, playerLimit) " +
+					"(Name, Type, Width, Height, playerLimit, originBoard) " +
 					"VALUES " +
-					"('" + name + "', 'Game', '" + width + "', '" + height + "', '" + playerLimit + "');");
+					"('" + name + "', 'Game', '" + width + "', '" + height + "', '" + playerLimit + "', '" + board + "');");
 
 			statement.executeUpdate("INSERT INTO player " +
 					"(Heading, ID, X, Y, Board) " +
@@ -441,4 +441,67 @@ public class RoborallyController {
 		);
 
 	}
+
+	@PostMapping("/roborally/joinGame")
+	public Object joinGame(@RequestBody JSONObject jsonObject) throws SQLException {
+		String name = (String) jsonObject.get("name");
+
+		Connection connection = DriverManager.getConnection("jdbc:mysql://" + url + ":" + port + "/" + database + "?characterEncoding=utf8", username, password);
+
+		String command = "UPDATE boardsettings SET playerCount = playerCount + 1 WHERE Name = ? AND `Type` = ?;";
+		try (PreparedStatement updateStmt = connection.prepareStatement(command)) {
+			updateStmt.setObject(1, name);
+			updateStmt.setObject(2, "Game");
+			updateStmt.execute();
+		} catch(Exception err) {
+			System.out.println("An error has occurred.");
+			System.out.println("See full details below.");
+			err.printStackTrace();
+		}
+
+		Statement statement = connection.createStatement();
+
+		ResultSet response = statement.executeQuery("SELECT Max(ID) as ID FROM player WHERE Board = '" + name + "';");
+
+		int ID = 0;
+
+		while (response.next()) {
+			ID = response.getInt("ID") + 1;
+		}
+
+		statement.executeUpdate("INSERT INTO player " +
+				"(Heading, ID, X, Y, Board) " +
+				"VALUES " +
+				"('SOUTH', '" + ID + "', '0', '0', '" + name + "');");
+
+		return new ResponseEntity<>(
+				HttpStatus.OK
+		);
+	}
+
+	@PostMapping("/roborally/saveGame")
+	public Object saveGame(@RequestBody JSONObject jsonObject) throws SQLException {
+		String name = (String) jsonObject.get("name");
+		int currentStep = (int) jsonObject.get("currentStep");
+
+		Connection connection = DriverManager.getConnection("jdbc:mysql://" + url + ":" + port + "/" + database + "?characterEncoding=utf8", username, password);
+
+		String command = "UPDATE boardsettings SET `Type` = ?, currentStep = ? WHERE Name = ? AND `Type` = ?;";
+		try (PreparedStatement updateStmt = connection.prepareStatement(command)) {
+			updateStmt.setObject(1, "Save");
+			updateStmt.setObject(2, currentStep);
+			updateStmt.setObject(3, name);
+			updateStmt.setObject(4, "Game");
+			updateStmt.execute();
+		} catch(Exception err) {
+			System.out.println("An error has occurred.");
+			System.out.println("See full details below.");
+			err.printStackTrace();
+		}
+
+		return new ResponseEntity<>(
+				HttpStatus.OK
+		);
+	}
+
 }
