@@ -60,6 +60,8 @@ public class RoborallyController {
 				boardSettings.put("width", response.getString("width"));
 				boardSettings.put("height", response.getString("height"));
 
+				board.put("board", boardSettings);
+
 				ResultSet obstaclesQuery = statement.executeQuery("SELECT * FROM obstacle WHERE Board = '" + response.getString("Name") + "';");
 				JSONArray obstacles = new JSONArray();
 
@@ -132,8 +134,13 @@ public class RoborallyController {
 
 				boardSettings.put("width", response.getString("width"));
 				boardSettings.put("height", response.getString("height"));
+				boardSettings.put("phase", response.getString("Phase"));
+				boardSettings.put("currentPlayer", response.getString("currentPlayer"));
+				boardSettings.put("currentStep", response.getString("currentStep"));
 
-				ResultSet obstaclesQuery = statement.executeQuery("SELECT * FROM obstacle WHERE Board = '" + response.getString("Name") + "';");
+				board.put("board", boardSettings);
+
+				ResultSet obstaclesQuery = statement.executeQuery("SELECT * FROM obstacle WHERE Board = '" + response.getString("originBoard") + "';");
 				JSONArray obstacles = new JSONArray();
 
 				while (obstaclesQuery.next()) {
@@ -153,7 +160,7 @@ public class RoborallyController {
 
 				board.put("obstacles", obstacles);
 
-				ResultSet checkpointsQuery = statement.executeQuery("SELECT * FROM checkpoint WHERE Board = '" + response.getString("Name") + "';");
+				ResultSet checkpointsQuery = statement.executeQuery("SELECT * FROM checkpoint WHERE Board = '" + response.getString("originBoard") + "';");
 				JSONArray checkpoints = new JSONArray();
 
 				while (checkpointsQuery.next()) {
@@ -189,19 +196,24 @@ public class RoborallyController {
 
 	@GetMapping("/roborally/games")
 	ResponseEntity<Object> games() {
-		JSONArray games = null;
+		JSONObject games = null;
 
 		try {
 			Connection connection = DriverManager.getConnection("jdbc:mysql://" + url + ":" + port + "/" + database + "?characterEncoding=utf8", username, password);
 
 			Statement statement = connection.createStatement();
 
-			ResultSet response = statement.executeQuery("SELECT Name FROM boardsettings WHERE `Type` = 'Game';");
+			ResultSet response = statement.executeQuery("SELECT Name, playerCount, playerLimit FROM boardsettings WHERE `Type` = 'Game';");
 
-			games = new JSONArray();
+			games = new JSONObject();
 
 			while (response.next()) {
-				games.add(response.getString("Name"));
+				JSONObject game = new JSONObject();
+
+				game.put("playerCount", response.getString("playerCount"));
+				game.put("playerLimit", response.getString("playerLimit"));
+
+				games.put(response.getString("Name"), game);
 			}
 
 			connection.close();
@@ -504,4 +516,79 @@ public class RoborallyController {
 		);
 	}
 
+	@GetMapping("/roborally/getGame")
+	public Object getGame(@RequestParam(value = "name", defaultValue = "") String name) {
+
+		JSONObject boards = null;
+		try {
+			Connection connection = DriverManager.getConnection("jdbc:mysql://" + url + ":" + port + "/" + database + "?characterEncoding=utf8", username, password);
+
+			Statement statement = connection.createStatement();
+
+			ResultSet response = statement.executeQuery("SELECT * FROM boardsettings WHERE Name = '" + name + "';");
+
+			boards = new JSONObject();
+
+			while (response.next()) {
+				JSONObject board = new JSONObject();
+				JSONObject boardSettings = new JSONObject();
+
+				boardSettings.put("width", response.getString("width"));
+				boardSettings.put("height", response.getString("height"));
+
+				board.put("board", boardSettings);
+
+				ResultSet obstaclesQuery = statement.executeQuery("SELECT * FROM obstacle WHERE Board = '" + response.getString("originBoard") + "';");
+				JSONArray obstacles = new JSONArray();
+
+				while (obstaclesQuery.next()) {
+					JSONObject position = new JSONObject();
+
+					position.put("x", obstaclesQuery.getString("X"));
+					position.put("y", obstaclesQuery.getString("Y"));
+
+					JSONObject obstacle = new JSONObject();
+
+					obstacle.put("heading", obstaclesQuery.getString("Heading"));
+					obstacle.put("position", position);
+					obstacle.put("type", obstaclesQuery.getString("Type"));
+
+					obstacles.add(obstacle);
+				}
+
+				board.put("obstacles", obstacles);
+
+				ResultSet checkpointsQuery = statement.executeQuery("SELECT * FROM checkpoint WHERE Board = '" + response.getString("originBoard") + "';");
+				JSONArray checkpoints = new JSONArray();
+
+				while (checkpointsQuery.next()) {
+					JSONObject position = new JSONObject();
+
+					position.put("x", checkpointsQuery.getString("X"));
+					position.put("y", checkpointsQuery.getString("Y"));
+
+					JSONObject checkpoint = new JSONObject();
+
+					checkpoint.put("position", position);
+
+					checkpoints.add(checkpoint);
+				}
+
+				board.put("checkpoints", checkpoints);
+
+				boards.put(response.getString("Name"), board);
+			}
+
+
+			connection.close();
+
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return new ResponseEntity<>(
+				boards,
+				HttpStatus.OK
+		);
+	}
 }
