@@ -12,8 +12,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.Set;
 
 
 @RestController
@@ -41,7 +42,7 @@ public class RoborallyController {
 	}
 
 	@GetMapping("/roborally/boards")
-	ResponseEntity<Object> getBoards() throws IOException {
+	ResponseEntity<Object> getBoards() {
 		JSONObject boards = null;
 		try {
 			Connection connection = DriverManager.getConnection("jdbc:mysql://" + url + ":" + port + "/" + database + "?characterEncoding=utf8", username, password);
@@ -114,7 +115,7 @@ public class RoborallyController {
 	}
 
 	@GetMapping("/roborally/saves")
-	ResponseEntity<Object> getSaves() throws IOException {
+	ResponseEntity<Object> getSaves() {
 		JSONObject boards = null;
 		try {
 			Connection connection = DriverManager.getConnection("jdbc:mysql://" + url + ":" + port + "/" + database + "?characterEncoding=utf8", username, password);
@@ -292,5 +293,152 @@ public class RoborallyController {
 		return new ResponseEntity<>(
 				HttpStatus.OK
 		);
+	}
+
+	@PostMapping("/roborally/createBoards")
+	public Object createBoards(@RequestBody JSONObject jsonObject) {
+
+		LinkedHashMap<?, ?> boards = (LinkedHashMap<?, ?>) jsonObject.get("boards");
+
+		Set keys = boards.keySet();
+
+		for (Object key : keys) {
+			LinkedHashMap<?, ?> board = (LinkedHashMap<?, ?>) boards.get(key);
+
+			LinkedHashMap<?, ?> boardSettings = (LinkedHashMap<?, ?>) board.get("board");
+
+			int width = Integer.parseInt((String) boardSettings.get("width"));
+			int height = Integer.parseInt((String) boardSettings.get("height"));
+
+			try {
+				Connection connection = DriverManager.getConnection("jdbc:mysql://" + url + ":" + port + "/" + database + "?characterEncoding=utf8", username, password);
+
+				Statement statement = connection.createStatement();
+
+				statement.executeUpdate("INSERT INTO boardsettings " +
+						"(Name, Type, Width, Height) " +
+						"VALUES " +
+						"('" + key + "', 'Board', '" + width + "', '" + height + "');");
+
+				connection.close();
+			} catch(Exception err) {
+				System.out.println("An error has occurred.");
+				System.out.println("See full details below.");
+				err.printStackTrace();
+			}
+
+			ArrayList<?> obstacles = (ArrayList<?>) board.get("obstacles");
+
+			for (Object obstacle : obstacles) {
+				LinkedHashMap<?, ?> jsonObstacle = (LinkedHashMap<?, ?>) obstacle;
+				String heading = (String) jsonObstacle.get("heading");
+
+				LinkedHashMap<?, ?> position = (LinkedHashMap<?, ?>) jsonObstacle.get("position");
+				int X = Integer.parseInt((String) position.get("x"));
+				int Y = Integer.parseInt((String) position.get("y"));
+
+				String type = (String) jsonObstacle.get("type");
+
+				try {
+					Connection connection = DriverManager.getConnection("jdbc:mysql://" + url + ":" + port + "/" + database + "?characterEncoding=utf8", username, password);
+
+					Statement statement = connection.createStatement();
+
+					statement.executeUpdate("INSERT INTO obstacle " +
+							"(Heading, X, Y, Type, Board) " +
+							"VALUES " +
+							"('" + heading + "', '"+ X + "', '" + Y + "', '" + type + "', '" + key + "');");
+
+					connection.close();
+				} catch(Exception err) {
+					System.out.println("An error has occurred.");
+					System.out.println("See full details below.");
+					err.printStackTrace();
+				}
+
+			}
+
+			ArrayList<?> checkpoints = (ArrayList<?>) board.get("checkpoints");
+
+			for (Object checkpoint : checkpoints) {
+				LinkedHashMap<?, ?> jsonCheckpoint = (LinkedHashMap<?, ?>) checkpoint;
+
+				LinkedHashMap<?, ?> position = (LinkedHashMap<?, ?>) jsonCheckpoint.get("position");
+				int X = Integer.parseInt((String) position.get("x"));
+				int Y = Integer.parseInt((String) position.get("y"));
+
+				try {
+					Connection connection = DriverManager.getConnection("jdbc:mysql://" + url + ":" + port + "/" + database + "?characterEncoding=utf8", username, password);
+
+					Statement statement = connection.createStatement();
+
+					statement.executeUpdate("INSERT INTO checkpoint " +
+							"(X, Y, Board) " +
+							"VALUES " +
+							"('" + X + "', '"+ Y + "', '" + key + "');");
+
+					connection.close();
+				} catch(Exception err) {
+					System.out.println("An error has occurred.");
+					System.out.println("See full details below.");
+					err.printStackTrace();
+				}
+
+			}
+		}
+		return new ResponseEntity<>(
+				HttpStatus.OK
+		);
+	}
+
+	@PostMapping("/roborally/newGame")
+	public Object newGame(@RequestBody JSONObject jsonObject) {
+		String board = (String) jsonObject.get("Board");
+
+		String name = (String) jsonObject.get("Name");
+
+		int ID = (int) jsonObject.get("ID");
+
+		String heading = (String) jsonObject.get("Heading");
+
+		int X = (int) jsonObject.get("x");
+		int Y = (int) jsonObject.get("y");
+
+		int playerLimit = (int) jsonObject.get("playerLimit");
+
+		int width = 8;
+		int height = 8;
+
+		try {
+			Connection connection = DriverManager.getConnection("jdbc:mysql://" + url + ":" + port + "/" + database + "?characterEncoding=utf8", username, password);
+
+			Statement statement = connection.createStatement();
+
+			ResultSet response = statement.executeQuery("SELECT * FROM boardsettings WHERE `Type` = 'Board' AND Name = '" + board + "';");
+
+			while (response.next()) {
+				width = response.getInt("width");
+				height = response.getInt("height");
+			}
+
+			statement.executeUpdate("INSERT INTO boardsettings " +
+					"(Name, Type, Width, Height, playerLimit) " +
+					"VALUES " +
+					"('" + name + "', 'Game', '" + width + "', '" + height + "', '" + playerLimit + "');");
+
+			statement.executeUpdate("INSERT INTO player " +
+					"(Heading, ID, X, Y, Board) " +
+					"VALUES " +
+					"('" + heading + "', '" + ID + "', '" + X + "', '" + Y + "', '" + name + "');");
+
+			connection.close();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		return new ResponseEntity<>(
+				HttpStatus.OK
+		);
+
 	}
 }
