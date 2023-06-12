@@ -21,7 +21,7 @@ X int(11) not null,
 Y int (11) not null,
 playerHand VARCHAR(50) not null,
 playerProgram VARCHAR(50) not null,
-points int(11) not null DEFAULT 0,
+Points int(11) not null DEFAULT 0,
 Board VARCHAR(255) not null,
 FOREIGN KEY (Board) REFERENCES boardsettings (Name),
 PRIMARY KEY (Heading, ID, X, Y, playerHand, playerProgram, Board)
