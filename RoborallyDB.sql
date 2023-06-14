@@ -13,7 +13,8 @@ currentPlayer int(11),
 currentStep int(11),
 playerCount int(11) not null DEFAULT 1,
 playerLimit int(11) not null DEFAULT 2,
-originBoard VARCHAR(255) DEFAULT null,
+stepMode VARCHAR(255) not null DEFAULT "false",
+originBoard VARCHAR(255) not null DEFAULT Name,
 PRIMARY KEY (Name)
 ) DEFAULT CHARSET=utf8mb4;
 
@@ -22,11 +23,11 @@ Heading ENUM('NORTH', 'WEST', 'SOUTH', 'EAST') not null,
 ID int(11) not null,
 X int(11) not null,
 Y int (11) not null,
-playerHand VARCHAR(50) not null DEFAULT '[]',
-playerProgram VARCHAR(50) not null DEFAULT '[]',
+playerHand VARCHAR(150) not null DEFAULT '[]',
+playerProgram VARCHAR(150) not null DEFAULT '[]',
 Points int(11) not null DEFAULT 0,
 Board VARCHAR(255) not null,
-FOREIGN KEY (Board) REFERENCES boardsettings (Name),
+FOREIGN KEY (Board) REFERENCES boardsettings (Name) ON DELETE CASCADE,
 PRIMARY KEY (Heading, ID, X, Y, playerHand, playerProgram, Board)
 ) DEFAULT CHARSET=utf8mb4;
 
@@ -36,7 +37,7 @@ X int(11) not null,
 Y int (11) not null,
 `Type` ENUM('Wall','Gear','Conveyor','Checkpoint') not null,
 Board VARCHAR(255) not null,
-FOREIGN KEY (Board) REFERENCES boardsettings (Name),
+FOREIGN KEY (Board) REFERENCES boardsettings (Name) ON DELETE CASCADE, 
 PRIMARY KEY (Heading, X, Y, `Type`, Board)
 ) DEFAULT CHARSET=utf8mb4;
 
@@ -44,6 +45,6 @@ CREATE TABLE checkpoint (
 X int(11) not null,
 Y int(11) not null,
 Board VARCHAR(255) not null,
-FOREIGN KEY (Board) REFERENCES boardsettings (Name),
+FOREIGN KEY (Board) REFERENCES boardsettings (Name) ON DELETE CASCADE,
 PRIMARY KEY (X, Y, Board)
 ) DEFAULT CHARSET=utf8mb4;

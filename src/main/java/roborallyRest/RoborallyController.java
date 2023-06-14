@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.Objects;
 import java.util.Set;
 
 
@@ -132,6 +133,12 @@ public class RoborallyController {
 				JSONObject board = new JSONObject();
 				JSONObject boardSettings = new JSONObject();
 
+				if (Objects.equals(response.getString("stepMode"), "true")) {
+					boardSettings.put("stepMode", true);
+				} else {
+					boardSettings.put("stepMode", false);
+				}
+
 				boardSettings.put("width", response.getString("width"));
 				boardSettings.put("height", response.getString("height"));
 				boardSettings.put("phase", response.getString("Phase"));
@@ -177,6 +184,30 @@ public class RoborallyController {
 				}
 
 				board.put("checkpoints", checkpoints);
+
+				ResultSet playersQuery = statement.executeQuery("SELECT * FROM player WHERE Board = '" + response.getString("Name") + "';");
+				JSONArray players = new JSONArray();
+
+				while (playersQuery.next()) {
+					JSONObject position = new JSONObject();
+
+					position.put("x", playersQuery.getString("X"));
+					position.put("y", playersQuery.getString("Y"));
+
+					JSONObject player = new JSONObject();
+
+					player.put("position", position);
+					player.put("heading", playersQuery.getString("Heading"));
+					player.put("ID", playersQuery.getString("ID"));
+					player.put("playerHand", playersQuery.getString("playerHand"));
+					player.put("programHand", playersQuery.getString("playerProgram"));
+					player.put("points", playersQuery.getString("Points"));
+
+
+					players.add(player);
+				}
+
+				board.put("players", players);
 
 				boards.put(response.getString("Name"), board);
 			}
@@ -323,7 +354,14 @@ public class RoborallyController {
 			int height = Integer.parseInt((String) boardSettings.get("height"));
 
 			try {
-				Connection connection = DriverManager.getConnection("jdbc:mysql://" + url + ":" + port + "/" + database + "?characterEncoding=utf8", username, password);
+				Connection connection = DriverManager.getConnection("jdbc:mysql://" +
+						url +
+						":" +
+						port +
+						"/" +
+						database +
+						"?characterEncoding=utf8",
+						username, password);
 
 				Statement statement = connection.createStatement();
 
@@ -491,8 +529,213 @@ public class RoborallyController {
 		);
 	}
 
+
 	@PostMapping("/roborally/saveGame")
 	public Object saveGame(@RequestBody JSONObject jsonObject) throws SQLException {
+		Set keys = jsonObject.keySet();
+		String name = (String) keys.toArray()[0];
+
+		LinkedHashMap<?, ?> game = (LinkedHashMap<?, ?>) jsonObject.get(name);
+		ArrayList<Object> players = (ArrayList<Object>) game.get("players");
+
+		Connection connection = DriverManager.getConnection("jdbc:mysql://" +
+				url +
+				":" +
+				port +
+				"/" +
+				database +
+				"?characterEncoding=utf8",
+				username, password);
+		Statement statement = connection.createStatement();
+
+		LinkedHashMap<?, ?> boardsettings = (LinkedHashMap<?, ?>) game.get("board");
+
+		String phase = (String) boardsettings.get("phase");
+		int currentStep = Integer.parseInt((String) boardsettings.get("currentStep"));
+		int currentPlayer = Integer.parseInt((String) boardsettings.get("currentPlayer"));
+		int width = Integer.parseInt((String) boardsettings.get("width"));
+		int height = Integer.parseInt((String) boardsettings.get("height"));
+		String stepMode = boardsettings.get("stepMode").toString();
+		String originBoard = (String) boardsettings.get("originBoard");
+
+		try {
+			statement.executeUpdate("INSERT INTO boardsettings " +
+					"(Name, Type, Width, Height, Phase, currentPlayer, currentStep, stepMode, originBoard) " +
+					"VALUES " +
+					"('" + name + "', 'Save', '" + width + "', '" + height + "', '" + phase + "', '" + currentPlayer + "', '" + currentStep + "', '" + stepMode + "', '" + originBoard + "');");
+		} catch(Exception err) {
+			System.out.println("An error has occurred.");
+			System.out.println("See full details below.");
+			err.printStackTrace();
+		}
+
+		for (Object player : players) {
+			LinkedHashMap<?, ?> jsonPlayer = (LinkedHashMap<?, ?>) player;
+
+			String Heading = (String) jsonPlayer.get("heading");
+			int ID = Integer.parseInt((String) jsonPlayer.get("ID"));
+
+			LinkedHashMap<?, ?> position = (LinkedHashMap<?, ?>) jsonPlayer.get("position");
+			int X = Integer.parseInt((String) position.get("x"));
+			int Y = Integer.parseInt((String) position.get("y"));
+
+			String playerHand = jsonPlayer.get("playerHand").toString();
+			String playerProgram = jsonPlayer.get("programHand").toString();
+
+			int points = Integer.parseInt((String) jsonPlayer.get("points"));
+
+			try {
+				statement.executeUpdate("INSERT INTO player " +
+						"(Heading, ID, X, Y, playerHand, playerProgram, Points, Board) " +
+						"VALUES " +
+						"('" + Heading + "','" + ID + "', '" + X + "', '" + Y + "', '" + playerHand + "', '" + playerProgram + "', '" + points + "', '" + name + "');");
+			} catch(Exception err) {
+				System.out.println("An error has occurred.");
+				System.out.println("See full details below.");
+				err.printStackTrace();
+			}
+		}
+
+		ArrayList<Object> obstacles = (ArrayList<Object>) game.get("obstacles");
+
+		for (Object obstacle : obstacles) {
+			LinkedHashMap<?, ?> jsonObstacle = (LinkedHashMap<?, ?>) obstacle;
+			String Type = (String) jsonObstacle.get("type");
+
+			if (!Objects.equals(Type, "Checkpoint")) {
+				break;
+			}
+			String Heading = (String) jsonObstacle.get("heading");
+
+			LinkedHashMap<?, ?> position = (LinkedHashMap<?, ?>) jsonObstacle.get("position");
+			int X = Integer.parseInt((String) position.get("x"));
+			int Y = Integer.parseInt((String) position.get("y"));
+
+			try {
+				statement.executeUpdate("INSERT INTO obstacle " +
+						"(Heading, X, Y, Type, Board) " +
+						"VALUES " +
+						"('" + Heading + "', '" + X + "', '" + Y + "', '" + Type + "', '" + name + "');");
+			} catch(Exception err) {
+				System.out.println("An error has occurred.");
+				System.out.println("See full details below.");
+				err.printStackTrace();
+			}
+		}
+
+		connection.close();
+
+		return new ResponseEntity<>(
+				HttpStatus.OK
+		);
+	}
+
+	@PostMapping("/roborally/overwriteGame")
+	public Object overwriteGame(@RequestBody JSONObject jsonObject) throws SQLException {
+		Set keys = jsonObject.keySet();
+		String name = (String) keys.toArray()[0];
+
+		LinkedHashMap<?, ?> game = (LinkedHashMap<?, ?>) jsonObject.get(name);
+		ArrayList<Object> players = (ArrayList<Object>) game.get("players");
+
+		Connection connection = DriverManager.getConnection("jdbc:mysql://" + url + ":" + port + "/" + database + "?characterEncoding=utf8", username, password);
+
+		LinkedHashMap<?, ?> boardsettings = (LinkedHashMap<?, ?>) game.get("board");
+
+		String phase = (String) boardsettings.get("phase");
+		int currentStep = Integer.parseInt((String) boardsettings.get("currentStep"));
+		int currentPlayer = Integer.parseInt((String) boardsettings.get("currentPlayer"));
+		int width = Integer.parseInt((String) boardsettings.get("width"));
+		int height = Integer.parseInt((String) boardsettings.get("height"));
+		String stepMode = boardsettings.get("stepMode").toString();
+		String originBoard = (String) boardsettings.get("originBoard");
+
+		String boardCommand = "UPDATE boardsettings SET `Type` = ?, Width = ?, Height = ?, Phase = ?, currentPlayer = ?, currentStep = ?, stepMode = ?, originBoard = ? WHERE Name = ? AND `Type` = ?;";
+		try (PreparedStatement updateStmt = connection.prepareStatement(boardCommand)) {
+			updateStmt.setObject(1, "Save");
+			updateStmt.setObject(2, width);
+			updateStmt.setObject(3, height);
+			updateStmt.setObject(4, phase);
+			updateStmt.setObject(5, currentPlayer);
+			updateStmt.setObject(6, currentStep);
+			updateStmt.setObject(7, stepMode);
+			updateStmt.setObject(8, originBoard);
+			updateStmt.setObject(9, name);
+			updateStmt.setObject(10, "Save");
+			updateStmt.execute();
+		} catch(Exception err) {
+			System.out.println("An error has occurred.");
+			System.out.println("See full details below.");
+			err.printStackTrace();
+		}
+
+		for (Object player : players) {
+			LinkedHashMap<?, ?> jsonPlayer = (LinkedHashMap<?, ?>) player;
+
+			String Heading = (String) jsonPlayer.get("heading");
+			int ID = Integer.parseInt((String) jsonPlayer.get("ID"));
+
+			LinkedHashMap<?, ?> position = (LinkedHashMap<?, ?>) jsonPlayer.get("position");
+			int X = Integer.parseInt((String) position.get("x"));
+			int Y = Integer.parseInt((String) position.get("y"));
+
+			String playerHand = jsonPlayer.get("playerHand").toString();
+			String playerProgram = jsonPlayer.get("programHand").toString();
+
+			int points = Integer.parseInt((String) jsonPlayer.get("points"));
+
+			String playerCommand = "UPDATE player SET Heading = ?, X = ?, Y = ?, playerHand = ?, playerProgram = ?, Points = ? WHERE ID = ? AND Board = ?;";
+			try (PreparedStatement updateStmt = connection.prepareStatement(playerCommand)) {
+				updateStmt.setObject(1, Heading);
+				updateStmt.setObject(2, X);
+				updateStmt.setObject(3, Y);
+				updateStmt.setObject(4, playerHand);
+				updateStmt.setObject(5, playerProgram);
+				updateStmt.setObject(6, points);
+				updateStmt.setObject(7, ID);
+				updateStmt.setObject(8, name);
+				updateStmt.execute();
+			} catch(Exception err) {
+				System.out.println("An error has occurred.");
+				System.out.println("See full details below.");
+				err.printStackTrace();
+			}
+		}
+
+		ArrayList<Object> obstacles = (ArrayList<Object>) game.get("obstacles");
+
+		for (Object obstacle : obstacles) {
+			LinkedHashMap<?, ?> jsonObstacle = (LinkedHashMap<?, ?>) obstacle;
+			String Type = (String) jsonObstacle.get("type");
+
+			if (!Objects.equals(Type, "Checkpoint")) {
+				break;
+			}
+			LinkedHashMap<?, ?> position = (LinkedHashMap<?, ?>) jsonObstacle.get("position");
+			int X = Integer.parseInt((String) position.get("x"));
+			int Y = Integer.parseInt((String) position.get("y"));
+
+			String obstacleCommand = "UPDATE obstacle SET X = ?, Y = ? WHERE Board = ?;";
+			try (PreparedStatement updateStmt = connection.prepareStatement(obstacleCommand)) {
+				updateStmt.setObject(1, X);
+				updateStmt.setObject(2, Y);
+				updateStmt.setObject(3, name);
+				updateStmt.execute();
+			} catch(Exception err) {
+				System.out.println("An error has occurred.");
+				System.out.println("See full details below.");
+				err.printStackTrace();
+			}
+
+		}
+
+		return new ResponseEntity<>(
+				HttpStatus.OK
+		);
+	}
+
+	@PostMapping("/roborally/updateSave")
+	public Object updateSave(@RequestBody JSONObject jsonObject) throws SQLException {
 		String name = (String) jsonObject.get("name");
 		int currentStep = (int) jsonObject.get("currentStep");
 
@@ -519,18 +762,23 @@ public class RoborallyController {
 	@GetMapping("/roborally/getGame")
 	public Object getGame(@RequestParam(value = "name", defaultValue = "") String name) {
 
-		JSONObject boards = null;
+		JSONObject board = new JSONObject();
 		try {
-			Connection connection = DriverManager.getConnection("jdbc:mysql://" + url + ":" + port + "/" + database + "?characterEncoding=utf8", username, password);
+			Connection connection = DriverManager.getConnection("jdbc:mysql://" +
+					url +
+					":" +
+					port +
+					"/" +
+					database +
+					"?characterEncoding=utf8",
+					username, password);
 
 			Statement statement = connection.createStatement();
 
 			ResultSet response = statement.executeQuery("SELECT * FROM boardsettings WHERE Name = '" + name + "';");
 
-			boards = new JSONObject();
 
 			while (response.next()) {
-				JSONObject board = new JSONObject();
 				JSONObject boardSettings = new JSONObject();
 
 				boardSettings.put("width", response.getString("width"));
@@ -538,7 +786,10 @@ public class RoborallyController {
 
 				board.put("board", boardSettings);
 
-				ResultSet obstaclesQuery = statement.executeQuery("SELECT * FROM obstacle WHERE Board = '" + response.getString("originBoard") + "';");
+				ResultSet obstaclesQuery = statement.executeQuery("SELECT * FROM obstacle WHERE Board = '" +
+						response.getString("originBoard") +
+						"';");
+
 				JSONArray obstacles = new JSONArray();
 
 				while (obstaclesQuery.next()) {
@@ -575,8 +826,6 @@ public class RoborallyController {
 				}
 
 				board.put("checkpoints", checkpoints);
-
-				boards.put(response.getString("Name"), board);
 			}
 
 
@@ -587,7 +836,7 @@ public class RoborallyController {
 		}
 
 		return new ResponseEntity<>(
-				boards,
+				board,
 				HttpStatus.OK
 		);
 	}
